@@ -1,0 +1,149 @@
+[
+  {
+    "id": "runpod",
+    "name": "RunPod",
+    "url": "https://www.runpod.io/pricing",
+    "color": "#7c3aed",
+    "blurb": "Community + Secure Cloud, with Spot/Interruptible tier"
+  },
+  {
+    "id": "salad",
+    "name": "Salad",
+    "url": "https://salad.com/pricing",
+    "color": "#22c55e",
+    "blurb": "Distributed consumer-GPU network with priority tiers; vCPU/RAM billed separately"
+  },
+  {
+    "id": "modal",
+    "name": "Modal",
+    "url": "https://modal.com/pricing",
+    "color": "#10b981",
+    "blurb": "Serverless, per-second billing"
+  },
+  {
+    "id": "lambda",
+    "name": "Lambda",
+    "url": "https://lambda.ai/pricing",
+    "color": "#a855f7",
+    "blurb": "On-demand only (no spot)"
+  },
+  {
+    "id": "genesis-cloud",
+    "name": "Genesis Cloud",
+    "url": "https://www.genesiscloud.com/pricing",
+    "color": "#3b82f6",
+    "blurb": "HGX (8x min) and consumer 1x"
+  },
+  {
+    "id": "hyperstack",
+    "name": "Hyperstack",
+    "url": "https://www.hyperstack.cloud/gpu-pricing",
+    "color": "#0ea5e9",
+    "blurb": "On-demand, per-minute billing, no egress fees"
+  },
+  {
+    "id": "gpuhub",
+    "name": "GPUHub",
+    "url": "https://www.gpuhub.com/home",
+    "color": "#f59e0b",
+    "blurb": "Singapore provider, USD pay-as-you-go"
+  },
+  {
+    "id": "novita",
+    "name": "Novita",
+    "url": "https://novita.ai/pricing",
+    "color": "#ec4899",
+    "blurb": "On-demand + Spot (~50% off)"
+  },
+  {
+    "id": "verda",
+    "name": "Verda",
+    "url": "https://verda.com/products",
+    "color": "#06b6d4",
+    "blurb": "Ex-DataCrunch. On-demand + Spot (~65% off)"
+  },
+  {
+    "id": "dataoorts",
+    "name": "Dataoorts",
+    "url": "https://dataoorts.com/pricing/",
+    "color": "#64748b",
+    "blurb": "5 series: X-Series (VM), Nova (NVLink), Atlas (Blackwell HPC), Orion, Yotta. Free vCPU/RAM. Dynamic pricing every ~18h."
+  },
+  {
+    "id": "spheron",
+    "name": "Spheron",
+    "url": "https://www.spheron.network/pricing/",
+    "color": "#f43f5e",
+    "blurb": "Decentralized marketplace; cheapest-live-offer pricing"
+  },
+  {
+    "id": "packet-ai",
+    "name": "Packet.ai",
+    "url": "https://packet.ai/",
+    "color": "#8b5cf6",
+    "blurb": "On-demand only (no spot, no cluster minimums)"
+  },
+  {
+    "id": "vultr",
+    "name": "Vultr",
+    "url": "https://www.vultr.com/pricing/",
+    "color": "#3b82f6",
+    "blurb": "Cloud GPU + Bare Metal, on-demand only"
+  },
+  {
+    "id": "digitalocean",
+    "name": "DigitalOcean",
+    "url": "https://www.digitalocean.com/pricing/gpu-droplets",
+    "color": "#0080ff",
+    "blurb": "GPU Droplets, on-demand, includes egress"
+  },
+  {
+    "id": "jarvis-labs",
+    "name": "Jarvis Labs",
+    "url": "https://jarvislabs.ai/pricing",
+    "color": "#eab308",
+    "blurb": "On-demand + Spot (up to -56%, exact spot price not published)"
+  },
+  {
+    "id": "qubrid",
+    "name": "Qubrid",
+    "url": "https://platform.qubrid.com/pricing",
+    "color": "#14b8a6",
+    "blurb": "On-demand only, per-second billing"
+  },
+  {
+    "id": "vast-ai",
+    "name": "Vast.ai",
+    "url": "https://vast.ai/pricing",
+    "color": "#f97316",
+    "blurb": "Marketplace, On-demand + Interruptible (~50% off)"
+  },
+  {
+    "id": "akash",
+    "name": "Akash",
+    "url": "https://akash.network/pricing/gpus/",
+    "color": "#ef4444",
+    "blurb": "Decentralized marketplace (Cosmos blockchain), on-demand only"
+  },
+  {
+    "id": "coreweave",
+    "name": "CoreWeave",
+    "url": "https://www.coreweave.com/pricing",
+    "color": "#1d4ed8",
+    "blurb": "Classic (1x GPU public) and cluster (8x min)"
+  },
+  {
+    "id": "tensordock",
+    "name": "TensorDock",
+    "url": "https://www.tensordock.com/cloud-gpus.html",
+    "color": "#facc15",
+    "blurb": "Marketplace; on-demand only listed (page may be stale)"
+  },
+  {
+    "id": "thunder-compute",
+    "name": "Thunder Compute",
+    "url": "https://www.thundercompute.com/pricing",
+    "color": "#f472b6",
+    "blurb": "GPU virtualization. Prototyping (shared) + Production (dedicated)"
+  }
+]
