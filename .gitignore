@@ -26,3 +26,7 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# AI assistant context (per-developer, not shared)
+CLAUDE.md
+.claude/
