@@ -53,7 +53,7 @@
     "name": "Novita",
     "url": "https://novita.ai/pricing",
     "color": "#ec4899",
-    "blurb": "On-demand + Spot (~50% off)"
+    "blurb": "On-demand + Spot (spot tier typically unavailable in practice)"
   },
   {
     "id": "verda",
@@ -116,7 +116,7 @@
     "name": "Vast.ai",
     "url": "https://vast.ai/pricing",
     "color": "#f97316",
-    "blurb": "Marketplace, On-demand + Interruptible (~50% off)"
+    "blurb": "Marketplace — listed prices volatile; cheapest live offer often unreachable when provisioning"
   },
   {
     "id": "akash",
