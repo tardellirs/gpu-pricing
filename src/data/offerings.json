@@ -1676,7 +1676,10 @@
     "ram_gb": 96,
     "notes": "Modified 48GB variant",
     "source_url": "https://www.gpuhub.com/home",
-    "collected_at": "2026-05-24"
+    "collected_at": "2026-05-24",
+    "caveats": [
+      "User-verified working — tested in practice and provisioned successfully (2026-05-25)."
+    ]
   },
   {
     "id": "gpuhub-rtx-pro-6000-on-demand",
@@ -3962,6 +3965,7 @@
     "source_url": "https://salad.com/pricing",
     "collected_at": "2026-05-24",
     "caveats": [
+      "User-verified working — tested in practice and provisioned successfully (2026-05-25).",
       "Salad Medium priority tier — interruptible; higher tiers (High) cost more, lower (Low/Batch) cost less.",
       "vCPU/RAM billed separately: $0.004/vCPU/h + $0.001/GB/h."
     ]

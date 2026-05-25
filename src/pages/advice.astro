@@ -68,7 +68,13 @@ function markerFor(o: { provider_id: string; tier: string }): Marker {
 const ranking = parsedOfferings
   .filter((o) => o.price_usd_hour > 0)
   .filter((o) => !LEGACY_RE.test(o.gpu_model))
-  .filter((o) => !(o.provider_id === "salad" && o.gpu_model !== "RTX 3090"))
+  .filter(
+    (o) =>
+      !(
+        o.provider_id === "salad" &&
+        !["RTX 3090", "RTX 3090 Ti"].includes(o.gpu_model)
+      ),
+  )
   .filter((o) => !(o.provider_id === "novita" && o.is_spot))
   .filter((o) => o.provider_id !== "vast-ai")
   .map((o) => ({
@@ -94,6 +100,45 @@ const SECONDARY_IDS = new Set([
   "verda-rtx-pro-6000-spot",
   "runpod-rtx-a5000-community",
 ]);
+
+// User-verified options — confirmed working in practice. Surface them
+// even if they fall outside the top-30 by raw VRAM/$ — empirical
+// reliability beats theoretical efficiency.
+const VERIFIED_IDS = new Set([
+  "gpuhub-rtx-4090-48gb-on-demand",
+  "salad-rtx-3090-ti-spot",
+]);
+
+type Verified = {
+  id: string;
+  gpu: string;
+  vram: number;
+  price: number;
+  provider: string;
+  tier: string;
+  why: string;
+};
+
+const VERIFIED_PICKS: Verified[] = [
+  {
+    id: "gpuhub-rtx-4090-48gb-on-demand",
+    gpu: "RTX 4090 (48 GB mod)",
+    vram: 48,
+    price: 0.46,
+    provider: "GPUHub",
+    tier: "on-demand",
+    why: "The cheapest verified 48 GB on true on-demand. Modded 48 GB Ada/Blackwell GPU, ~104 VRAM/$. Not in the top 30 by raw VRAM/$, but on-demand availability + 48 GB sweet spot make it a strong production pick when interruption isn't acceptable and you don't want to pay Packet.ai's premium.",
+  },
+  {
+    id: "salad-rtx-3090-ti-spot",
+    gpu: "RTX 3090 Ti",
+    vram: 24,
+    price: 0.22,
+    provider: "Salad",
+    tier: "spot (Medium)",
+    why: "24 GB Ampere consumer at $0.22/h, confirmed available in practice. ~109 VRAM/$ — just outside top 30, but Salad's Medium priority tier has been workable. Remember: vCPU/RAM billed separately at Salad.",
+  },
+];
 
 type Pick = {
   rank: number;
@@ -150,7 +195,7 @@ const REMOVED_FROM_RANKING = [
   {
     label: "Salad's full lineup",
     detail:
-      "Only RTX 3090 is treated as reliably available at the Medium priority tier. Other Salad SKUs are listed on the page but availability varies enough that they distort cost-benefit math.",
+      "Only RTX 3090 and RTX 3090 Ti are treated as reliably available at the Medium priority tier. Other Salad SKUs are listed on the page but availability varies enough that they distort cost-benefit math.",
   },
   {
     label: "Novita Spot tier",
@@ -324,6 +369,50 @@ const PITFALLS = [
         </div>
       </section>
 
+      <!-- User-verified picks -->
+      <section class="space-y-4">
+        <h2
+          class="text-[11px] uppercase tracking-[0.22em] text-ink-300 font-mono border-b border-wire pb-2"
+        >
+          <span class="text-accent">$</span> ✓ user_verified
+        </h2>
+
+        <p class="text-xs text-ink-300 font-sans leading-relaxed">
+          Options confirmed working in practice — not necessarily top of the
+          VRAM/$ leaderboard, but availability is verified. Empirical
+          reliability beats theoretical efficiency.
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-3">
+          {
+            VERIFIED_PICKS.map((v) => (
+              <article class="border border-wireStrong bg-ink-900/40 p-4 space-y-2">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="text-accent text-sm font-mono"
+                    title="User-verified"
+                  >
+                    ✓
+                  </span>
+                  <span class="text-sm font-mono text-ink-50 font-medium">
+                    {v.gpu}
+                  </span>
+                </div>
+                <div class="text-[11px] uppercase tracking-wider text-ink-400 font-mono flex flex-wrap gap-x-3 gap-y-1">
+                  <span class="text-ink-200">{v.vram} GB</span>
+                  <span class="text-ink-200">${v.price.toFixed(2)}/h</span>
+                  <span>{v.provider}</span>
+                  <span>{v.tier}</span>
+                </div>
+                <p class="text-xs text-ink-300 font-sans leading-relaxed pt-1">
+                  {v.why}
+                </p>
+              </article>
+            ))
+          }
+        </div>
+      </section>
+
       <!-- Top 30 ranking -->
       <section class="space-y-4">
         <h2
@@ -381,6 +470,14 @@ const PITFALLS = [
                           {highlighted === "secondary" && (
                             <span class="text-accent text-[10px]">★</span>
                           )}
+                          {VERIFIED_IDS.has(r.id) && (
+                            <span
+                              class="text-accent text-[10px]"
+                              title="User-verified working"
+                            >
+                              ✓
+                            </span>
+                          )}
                           {r.marker === "warn" && (
                             <span
                               class="text-ink-400 text-[10px]"
@@ -431,9 +528,9 @@ const PITFALLS = [
         </div>
 
         <p class="text-[11px] text-ink-400 font-mono leading-relaxed pt-1">
-          <span class="text-accent">▸</span> ★★ = primary recommendation · ★ = strong alternative · ⚠ = marketplace / virtualized (listed price may not materialize)
+          <span class="text-accent">▸</span> ★★ = primary recommendation · ★ = strong alternative · ✓ = user-verified working · ⚠ = marketplace / virtualized (listed price may not materialize)
           <br />
-          <span class="text-accent">▸</span> Salad RTX 3090 at $0.20 lands at #31 (120 VRAM/$) — a hair below the cutoff. Honorable mention.
+          <span class="text-accent">▸</span> Honorable mentions just below the cutoff: Salad RTX 3090 ($0.20, 120 VRAM/$), Salad RTX 3090 Ti ($0.22, 109 ✓ verified), GPUHub RTX 4090 48GB ($0.46, 104 ✓ verified).
         </p>
       </section>
 
