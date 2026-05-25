@@ -1,0 +1,217 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Theme tokens
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Tell the browser we support both themes (scrollbars, form controls, canvas). */
+  color-scheme: light dark;
+}
+
+/* --- DARK palette (default — applied first, then overridden for light) ----- */
+:root {
+  --ink-950: 8 9 11;
+  --ink-900: 12 13 16;
+  --ink-850: 16 18 22;
+  --ink-800: 20 23 28;
+  --ink-700: 28 32 39;
+  --ink-600: 38 43 52;
+  --ink-500: 54 60 71;
+  --ink-400: 90 97 109;
+  --ink-300: 135 141 152;
+  --ink-200: 179 184 193;
+  --ink-100: 218 221 226;
+  --ink-50: 238 240 243;
+
+  --accent: 245 158 11;       /* amber-500 */
+  --accent-glow: 251 191 36;  /* amber-400 */
+  --accent-dim: 61 42 6;
+
+  --wire: rgba(255, 255, 255, 0.06);
+  --wire-strong: rgba(255, 255, 255, 0.10);
+
+  --grid-line: rgba(255, 255, 255, 0.018);
+  --selection-bg: rgb(245 158 11);
+  --selection-fg: rgb(8 9 11);
+}
+
+/* --- LIGHT palette ---
+   Applied when:
+   1. The user's system preference is light AND they haven't pinned a theme.
+   2. OR the user explicitly pinned 'light' via the toggle.
+   Note: dark palette stays the default for users who haven't picked anything
+   AND whose system is set to dark. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ink-950: 250 250 249;
+    --ink-900: 244 244 245;
+    --ink-850: 236 236 238;
+    --ink-800: 228 228 231;
+    --ink-700: 212 212 216;
+    --ink-600: 161 161 170;
+    --ink-500: 113 113 122;
+    --ink-400: 82 82 91;
+    --ink-300: 63 63 70;
+    --ink-200: 39 39 42;
+    --ink-100: 24 24 27;
+    --ink-50: 9 9 11;
+
+    --accent: 217 119 6;        /* amber-600 — slightly darker for AA contrast on light bg */
+    --accent-glow: 245 158 11;
+    --accent-dim: 254 243 199;
+
+    --wire: rgba(0, 0, 0, 0.08);
+    --wire-strong: rgba(0, 0, 0, 0.14);
+
+    --grid-line: rgba(0, 0, 0, 0.025);
+    --selection-bg: rgb(217 119 6);
+    --selection-fg: rgb(250 250 249);
+  }
+}
+
+/* --- Pinned light (overrides system preference) --- */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --ink-950: 250 250 249;
+  --ink-900: 244 244 245;
+  --ink-850: 236 236 238;
+  --ink-800: 228 228 231;
+  --ink-700: 212 212 216;
+  --ink-600: 161 161 170;
+  --ink-500: 113 113 122;
+  --ink-400: 82 82 91;
+  --ink-300: 63 63 70;
+  --ink-200: 39 39 42;
+  --ink-100: 24 24 27;
+  --ink-50: 9 9 11;
+
+  --accent: 217 119 6;
+  --accent-glow: 245 158 11;
+  --accent-dim: 254 243 199;
+
+  --wire: rgba(0, 0, 0, 0.08);
+  --wire-strong: rgba(0, 0, 0, 0.14);
+
+  --grid-line: rgba(0, 0, 0, 0.025);
+  --selection-bg: rgb(217 119 6);
+  --selection-fg: rgb(250 250 249);
+}
+
+/* --- Pinned dark (overrides system preference) --- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  /* values already match :root defaults; declared anyway so this selector
+     takes precedence over any other overrides */
+  --ink-950: 8 9 11;
+  --ink-900: 12 13 16;
+  --ink-850: 16 18 22;
+  --ink-800: 20 23 28;
+  --ink-700: 28 32 39;
+  --ink-600: 38 43 52;
+  --ink-500: 54 60 71;
+  --ink-400: 90 97 109;
+  --ink-300: 135 141 152;
+  --ink-200: 179 184 193;
+  --ink-100: 218 221 226;
+  --ink-50: 238 240 243;
+
+  --accent: 245 158 11;
+  --accent-glow: 251 191 36;
+  --accent-dim: 61 42 6;
+
+  --wire: rgba(255, 255, 255, 0.06);
+  --wire-strong: rgba(255, 255, 255, 0.10);
+
+  --grid-line: rgba(255, 255, 255, 0.018);
+  --selection-bg: rgb(245 158 11);
+  --selection-fg: rgb(8 9 11);
+}
+
+/* ---------------------------------------------------------------------------
+   Base layer
+   --------------------------------------------------------------------------- */
+
+html,
+body {
+  background: rgb(var(--ink-950));
+  color: rgb(var(--ink-100));
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-feature-settings: "ss01", "ss02", "cv11";
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+body {
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: -1px -1px;
+}
+
+/* Scrollbar — minimal, on-brand, theme-aware */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--wire-strong);
+  border: 2px solid rgb(var(--ink-950));
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--ink-400));
+}
+
+/* Selection */
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+/* Focus ring — sharp, accent */
+*:focus-visible {
+  outline: 1px solid rgb(var(--accent));
+  outline-offset: 1px;
+}
+
+/* Kill the rounded defaults for form controls */
+input,
+button,
+select,
+textarea {
+  border-radius: 0;
+  font-family: inherit;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Utility: faint divider */
+.hr-wire {
+  border-top: 1px solid var(--wire);
+}
+
+/* Utility: prompt caret */
+.prompt::before {
+  content: "$";
+  color: rgb(var(--accent));
+  margin-right: 0.5em;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
