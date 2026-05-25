@@ -1,0 +1,118 @@
+---
+import "../styles/globals.css";
+import CatalogApp from "../components/CatalogApp.tsx";
+import { ThemeToggle } from "../components/ThemeToggle.tsx";
+import offerings from "../data/offerings.json";
+import providers from "../data/providers.json";
+import { OfferingsFileSchema, ProvidersFileSchema } from "../data/schema";
+import { Github } from "lucide-react";
+
+// Build-time validation: fail the build if data is malformed
+const parsedOfferings = OfferingsFileSchema.parse(offerings);
+const parsedProviders = ProvidersFileSchema.parse(providers);
+
+const collectedAt = parsedOfferings
+  .map((o) => o.collected_at)
+  .sort()
+  .at(-1) ?? "—";
+
+const GH_URL = "https://github.com/tardellirs/gpu-pricing";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Declare both schemes so the browser pre-paints the canvas in the right
+         color before our CSS even loads (per modern-web-guidance/dark-mode). -->
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Compare per-hour GPU rental prices across 21+ providers. On-demand & spot, single GPU only."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>gpu-pricing — compare 21+ cloud GPU providers</title>
+
+    <!-- Pre-paint theme sync: must be inline, blocking, NOT type=module / NOT
+         defer. Reads the user's pinned preference and applies it before paint
+         so users who picked a non-system theme don't see a FOUC. -->
+    <script is:inline>
+      (function () {
+        try {
+          var pinned = localStorage.getItem("theme");
+          if (pinned === "light" || pinned === "dark") {
+            document.documentElement.setAttribute("data-theme", pinned);
+            var meta = document.querySelector('meta[name="color-scheme"]');
+            if (meta) meta.setAttribute("content", pinned);
+          }
+        } catch (e) {
+          /* localStorage blocked — fall through to system preference */
+        }
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen text-ink-100">
+    <header
+      class="sticky top-0 z-30 h-14 border-b border-wire bg-ink-950/85 backdrop-blur-md"
+    >
+      <div class="h-full px-4 md:px-6 flex items-center justify-between gap-4">
+        <a href="/" class="group flex items-center gap-2.5 min-w-0">
+          <span class="text-accent text-base leading-none">▌</span>
+          <span class="font-mono text-sm tracking-tight">
+            <span class="text-ink-50 font-semibold">gpu-pricing</span>
+            <span class="text-ink-500">/</span>
+            <span class="text-ink-300 group-hover:text-ink-100 transition-colors hidden sm:inline"
+              >catalog</span
+            >
+          </span>
+        </a>
+
+        <div class="flex items-center gap-4 text-[10px] uppercase tracking-[0.16em] font-mono text-ink-400">
+          <span class="hidden md:inline">
+            <span class="text-ink-500">last_sync</span>
+            <span class="text-ink-200 ml-1.5 tabular-nums">{collectedAt}</span>
+          </span>
+          <ThemeToggle client:load />
+          <a
+            href={GH_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 hover:text-accent transition-colors"
+          >
+            <Github className="w-3.5 h-3.5" />
+            <span class="hidden sm:inline">github</span>
+          </a>
+        </div>
+      </div>
+      <div
+        class="absolute left-0 right-0 -bottom-px h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent"
+      ></div>
+    </header>
+
+    <CatalogApp
+      client:load
+      offerings={parsedOfferings}
+      providers={parsedProviders}
+    />
+
+    <footer class="border-t border-wire mt-8 py-6 px-4 md:px-6">
+      <div class="flex flex-col sm:flex-row gap-3 sm:gap-6 text-[10px] uppercase tracking-[0.16em] font-mono text-ink-500">
+        <span>
+          <span class="text-ink-400">prices</span> usd per gpu-hour, single gpu only
+        </span>
+        <span>
+          <span class="text-ink-400">excluded</span> reserved · serverless apis · 8x-only bundles
+        </span>
+        <a
+          href={GH_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="hover:text-accent transition-colors sm:ml-auto"
+        >
+          contribute_on_github →
+        </a>
+      </div>
+    </footer>
+  </body>
+</html>

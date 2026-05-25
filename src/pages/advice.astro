@@ -1,0 +1,370 @@
+---
+import "../styles/globals.css";
+import { ThemeToggle } from "../components/ThemeToggle.tsx";
+import { Github, ArrowLeft } from "lucide-react";
+
+const GH_URL = "https://github.com/tardellirs/gpu-pricing";
+const COLLECTED = "2026-05-24";
+
+const RANKING: Array<{ n: string; name: string; reason: string }> = [
+  { n: "01", name: "Dataoorts", reason: "H100 spot $0.79 (Nova series), vCPU/RAM free, 5 distinct series including Blackwell GB300. The unexpected winner once you look past the dynamic-pricing scare." },
+  { n: "02", name: "Verda (ex-DataCrunch)", reason: "Consistent ~65% spot discount across the lineup (H100 $0.80, A100 $0.45). No hidden line items." },
+  { n: "03", name: "RunPod", reason: "Broadest catalog (31 SKUs), three tiers (Community / Secure / Spot), best UX among GPU-native clouds. Not the cheapest — the most complete." },
+  { n: "04", name: "Hyperstack", reason: "Best on-demand-only H100 ($1.90 PCIe). No egress fees, per-minute billing. Pick this if you can't accept preemption." },
+  { n: "05", name: "Vast.ai", reason: "Best-curated marketplace. Transparent min/median, both on-demand and interruptible. Volatility is the trade-off." },
+  { n: "06", name: "Salad", reason: "Unbeatable on consumer GPUs (RTX 4090 $0.25!) — but vCPU/RAM billed separately and the tier is interruptible." },
+  { n: "07", name: "Modal", reason: "Real serverless (per-second). Cheap if your workload is bursty; expensive if it runs 24/7." },
+  { n: "08", name: "Jarvis Labs", reason: "Simple catalog, reasonable prices, spot exists (~56% off, estimated)." },
+  { n: "09", name: "Novita", reason: "Focused catalog, real spot at ~50% off, friendly to China-region workloads." },
+  { n: "10", name: "Spheron / Akash", reason: "Decentralized marketplaces. Can show absurdly low minimums (Akash RTX 4090 $0.17) but availability swings day-to-day. Use with a fallback." },
+];
+
+type ScenarioBlock = {
+  title: string;
+  picks: Array<[string, string]>;
+  rationale?: string;
+};
+
+const SCENARIOS: ScenarioBlock[] = [
+  {
+    title: "Cheapest H100 for interruption-tolerant training",
+    picks: [
+      ["Dataoorts Nova spot", "$0.79"],
+      ["Verda spot", "$0.80"],
+      ["Vast.ai interruptible", "$1.10"],
+    ],
+    rationale:
+      "Above this you're paying markup. Dataoorts and Verda quote more predictable prices than Vast.ai (which is a live marketplace).",
+  },
+  {
+    title: "Reliable H100 on-demand, no spot",
+    picks: [
+      ["Thunder Compute", "$1.38 — but virtualized GPU-over-IP; perf varies"],
+      ["Hyperstack H100 PCIe", "$1.90 — dedicated, clean"],
+      ["RunPod Community", "$1.99 — the realistic sweet spot"],
+    ],
+  },
+  {
+    title: "Small-model inference on RTX 4090",
+    picks: [
+      ["Salad", "$0.25 — add $0.004/vCPU/h + $0.001/GB RAM/h"],
+      ["Akash", "$0.17 — volatile, may have no offer"],
+      ["RunPod Community", "$0.34 — simpler, predictable"],
+    ],
+  },
+  {
+    title: "True serverless — pay only while it runs",
+    picks: [
+      [
+        "Modal",
+        "T4 $0.59 equiv, A100 $2.50 — high per-hour, but 30 min/day workloads are unbeatable",
+      ],
+    ],
+  },
+  {
+    title: "Cheap A100 80GB without surprises",
+    picks: [
+      ["Akash", "$1.08 — marketplace, 13/16 free at snapshot"],
+      ["RunPod Community PCIe", "$1.19"],
+      ["Verda", "$1.29 (spot at $0.45 available)"],
+      ["Hyperstack PCIe", "$1.35"],
+    ],
+  },
+];
+
+const PITFALLS: Array<{ provider: string; warning: string }> = [
+  {
+    provider: "Salad / Modal",
+    warning: "vCPU/RAM billed separately. GPU-only price misleads.",
+  },
+  {
+    provider: "Spheron / Vast / Akash",
+    warning:
+      "The shown number is \"cheapest live offer\" — can be 2–3× higher when you actually provision.",
+  },
+  {
+    provider: "CoreWeave",
+    warning:
+      "Classic tier still has 1x SKUs, but new H100/H200 are only sold in 8x bundles.",
+  },
+  {
+    provider: "Vultr",
+    warning:
+      "H100/A100/B200 are 8x bundles. 1x SKUs limited to A16, L40S, A40, A100 PCIe, GH200.",
+  },
+  {
+    provider: "Dataoorts",
+    warning: "\"Dynamic\" pricing refreshes every ~18h. Values can drift.",
+  },
+  {
+    provider: "Thunder Compute (Prototyping)",
+    warning:
+      "Cheap because it's virtualized shared GPU — performance fluctuates; not for prod.",
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex" />
+    <meta
+      name="description"
+      content="Opinionated cost-benefit ranking of 21 cloud GPU providers, derived from the gpu-pricing catalog."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>advice — gpu-pricing</title>
+
+    <script is:inline>
+      (function () {
+        try {
+          var pinned = localStorage.getItem("theme");
+          if (pinned === "light" || pinned === "dark") {
+            document.documentElement.setAttribute("data-theme", pinned);
+            var meta = document.querySelector('meta[name="color-scheme"]');
+            if (meta) meta.setAttribute("content", pinned);
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen text-ink-100">
+    <header
+      class="sticky top-0 z-30 h-14 border-b border-wire bg-ink-950/85 backdrop-blur-md"
+    >
+      <div class="h-full px-4 md:px-6 flex items-center justify-between gap-4">
+        <a href="/" class="group flex items-center gap-2.5 min-w-0">
+          <span class="text-accent text-base leading-none">▌</span>
+          <span class="font-mono text-sm tracking-tight">
+            <span class="text-ink-50 font-semibold">gpu-pricing</span>
+            <span class="text-ink-500">/</span>
+            <span
+              class="text-ink-300 group-hover:text-ink-100 transition-colors"
+              >advice</span
+            >
+          </span>
+        </a>
+
+        <div
+          class="flex items-center gap-4 text-[10px] uppercase tracking-[0.16em] font-mono text-ink-400"
+        >
+          <a
+            href="/"
+            class="inline-flex items-center gap-1.5 hover:text-accent transition-colors"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            <span class="hidden sm:inline">back_to_catalog</span>
+          </a>
+          <ThemeToggle client:load />
+          <a
+            href={GH_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 hover:text-accent transition-colors"
+          >
+            <Github className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
+      <div
+        class="absolute left-0 right-0 -bottom-px h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent"
+      >
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 md:px-6 py-10 md:py-16 space-y-12">
+      <!-- Intro -->
+      <section class="space-y-4">
+        <p
+          class="text-[11px] uppercase tracking-[0.22em] text-ink-400 font-mono"
+        >
+          <span class="text-accent">$</span> cat advice.md
+        </p>
+        <h1
+          class="text-3xl md:text-4xl font-mono font-semibold text-ink-50 leading-tight"
+        >
+          The opinionated <span class="text-accent">cost-benefit</span> ranking.
+        </h1>
+        <p class="text-sm text-ink-200 font-sans leading-relaxed max-w-2xl">
+          21 providers, 310 offerings — but you only need one. Below is what
+          the catalog actually says about who to pick, by use case. Numbers come
+          straight from <code>offerings.json</code>. Snapshot: <span
+            class="text-ink-100 tabular-nums">{COLLECTED}</span
+          >.
+        </p>
+      </section>
+
+      <!-- Overall ranking -->
+      <section class="space-y-4">
+        <h2
+          class="text-[11px] uppercase tracking-[0.22em] text-ink-300 font-mono border-b border-wire pb-2"
+        >
+          <span class="text-accent">$</span> overall_top_10
+        </h2>
+        <ol class="space-y-3 font-mono text-sm">
+          {
+            RANKING.map((r) => (
+              <li class="grid grid-cols-[2.5rem_1fr] gap-x-3 items-baseline border-b border-wire/40 pb-3">
+                <span class="text-accent tabular-nums text-xs">{r.n}</span>
+                <div>
+                  <div class="text-ink-50 font-semibold">{r.name}</div>
+                  <p class="mt-1 text-xs text-ink-300 font-sans leading-relaxed">
+                    {r.reason}
+                  </p>
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+
+        <p class="text-xs text-ink-300 font-sans leading-relaxed pt-2">
+          <strong class="text-ink-100">Skip for pure cost:</strong> CoreWeave Classic
+          1x is expensive ($4.25 H100), Lambda has no spot ($3.29 H100), DigitalOcean
+          is on-demand-only ($3.39 H100), Vultr's H100/A100/B200 are 8x-only bundles.
+        </p>
+      </section>
+
+      <!-- By scenario -->
+      <section class="space-y-6">
+        <h2
+          class="text-[11px] uppercase tracking-[0.22em] text-ink-300 font-mono border-b border-wire pb-2"
+        >
+          <span class="text-accent">$</span> grep -A scenario
+        </h2>
+
+        {
+          SCENARIOS.map((s) => (
+            <div class="space-y-2.5">
+              <h3 class="text-sm font-mono text-ink-100 font-medium">
+                <span class="text-accent">▸</span> {s.title}
+              </h3>
+              <ol class="space-y-1.5 ml-4 font-mono text-xs">
+                {s.picks.map(([name, detail], i) => (
+                  <li class="grid grid-cols-[1.5rem_1fr] gap-x-2 items-baseline">
+                    <span class="text-ink-500 tabular-nums">
+                      {String(i + 1).padStart(2, "0")}.
+                    </span>
+                    <span>
+                      <span class="text-ink-100">{name}</span>
+                      <span class="text-ink-400"> — {detail}</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              {s.rationale && (
+                <p class="ml-4 text-xs text-ink-300 font-sans italic leading-relaxed">
+                  {s.rationale}
+                </p>
+              )}
+            </div>
+          ))
+        }
+      </section>
+
+      <!-- Pitfalls -->
+      <section class="space-y-4">
+        <h2
+          class="text-[11px] uppercase tracking-[0.22em] text-ink-300 font-mono border-b border-wire pb-2"
+        >
+          <span class="text-accent">$</span> cat pitfalls
+        </h2>
+        <ul class="space-y-2.5 text-xs font-sans text-ink-200 leading-relaxed">
+          {
+            PITFALLS.map((p) => (
+              <li class="flex gap-3">
+                <span class="text-accent shrink-0 font-mono">!</span>
+                <span>
+                  <strong class="font-mono text-ink-100">{p.provider}:</strong>{" "}
+                  {p.warning}
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <!-- Single pick -->
+      <section class="space-y-4">
+        <h2
+          class="text-[11px] uppercase tracking-[0.22em] text-ink-300 font-mono border-b border-wire pb-2"
+        >
+          <span class="text-accent">$</span> if i had to pick one
+        </h2>
+        <div
+          class="border border-wireStrong bg-ink-900/60 p-5 md:p-7 space-y-4"
+        >
+          <p class="text-sm text-ink-100 font-sans leading-relaxed">
+            For a <strong>single provider</strong> covering training, inference,
+            and prototyping today: <strong class="text-accent font-mono"
+              >RunPod</strong
+            >. Community for cheap batch ($1.99 H100), Secure for production ($3.29),
+            Spot for throwaway experiments. Catalog spans B200 down to RTX A4000.
+            UX is the best in the GPU-native cloud category.
+          </p>
+          <p class="text-sm text-ink-200 font-sans leading-relaxed">
+            To <strong>maximize savings on interruption-tolerant training</strong>,
+            combine: <span class="font-mono text-accent">Dataoorts</span> / <span
+              class="font-mono text-accent">Verda</span
+            > spot as primary, <span class="font-mono text-accent"
+              >RunPod Community</span
+            > as fallback when spot evaporates.
+          </p>
+          <p class="text-sm text-ink-200 font-sans leading-relaxed">
+            For <strong>consumer-GPU inference</strong> (chatbots, image generation,
+            light models): <span class="font-mono text-accent">Salad</span> is hard
+            to beat on price — just remember to add ~$0.05/h for the vCPU/RAM you'll
+            actually attach.
+          </p>
+        </div>
+      </section>
+
+      <!-- Disclaimer -->
+      <section class="pt-4 border-t border-wire">
+        <p
+          class="text-[10px] uppercase tracking-[0.18em] font-mono text-ink-500 leading-relaxed"
+        >
+          <span class="text-accent">▸</span> opinionated, not paid. derived from
+          public pricing pages, snapshot {COLLECTED}.
+          <br />
+          <span class="text-accent">▸</span> no perf-per-dollar benchmarks. no uptime/SLA
+          data. no kickbacks. trust but verify.
+          <br />
+          <span class="text-accent">▸</span> spot a mistake? PR welcome — <a
+            href={GH_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-ink-300 hover:text-accent transition-colors">github</a
+          >.
+        </p>
+      </section>
+    </main>
+
+    <footer class="border-t border-wire mt-12 py-6 px-4 md:px-6">
+      <div
+        class="flex flex-col sm:flex-row gap-3 sm:gap-6 text-[10px] uppercase tracking-[0.16em] font-mono text-ink-500 max-w-3xl mx-auto"
+      >
+        <a href="/" class="hover:text-accent transition-colors">← catalog</a>
+        <a
+          href={GH_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="hover:text-accent transition-colors sm:ml-auto"
+        >
+          contribute_on_github →
+        </a>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  code {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 0.85em;
+    padding: 0 0.25em;
+    background: rgba(245, 158, 11, 0.08);
+  }
+</style>
