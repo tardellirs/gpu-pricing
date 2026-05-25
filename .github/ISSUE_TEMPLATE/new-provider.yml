@@ -1,0 +1,46 @@
+name: New provider
+description: Propose adding a new GPU rental provider to the catalog.
+title: "[provider] add <name>"
+labels: ["new-provider"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Provider name
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Pricing page URL
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why include this provider?
+      description: What does it bring that the existing 21 don't? (Unique GPUs, region, pricing model, etc.)
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Sample offerings
+      description: |
+        A few GPU rows from the provider — model, VRAM, tier, USD/h. The more concrete, the faster the PR.
+      placeholder: |
+        - H100 SXM 80GB — on-demand — $2.49/h
+        - A100 80GB — spot — $0.69/h
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Confirm it fits our scope
+      options:
+        - label: Public, transparent per-hour pricing (no "contact sales")
+          required: true
+        - label: 1x GPU SKUs available (not 8x-only bundles)
+          required: true
+        - label: Not pure serverless inference API (we list GPU rentals, not /chat endpoints)
+          required: true

@@ -1,0 +1,82 @@
+name: Price update
+description: Report a stale or incorrect price for an existing GPU offering.
+title: "[price] <provider> — <gpu>"
+labels: ["price-update"]
+body:
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      description: Which provider does this price belong to?
+      options:
+        - RunPod
+        - Salad
+        - Modal
+        - Lambda
+        - Genesis Cloud
+        - Hyperstack
+        - GPUHub
+        - Novita
+        - Verda
+        - Dataoorts
+        - Spheron
+        - Packet.ai
+        - Vultr
+        - DigitalOcean
+        - Jarvis Labs
+        - Qubrid
+        - Vast.ai
+        - Akash
+        - CoreWeave
+        - TensorDock
+        - Thunder Compute
+        - other (mention below)
+    validations:
+      required: true
+  - type: input
+    id: gpu_model
+    attributes:
+      label: GPU model
+      description: As shown on the provider's pricing page (e.g. "NVIDIA H100 SXM").
+      placeholder: NVIDIA H100 SXM
+    validations:
+      required: true
+  - type: input
+    id: tier
+    attributes:
+      label: Tier
+      description: on-demand · spot · secure · community · marketplace · batch · prototyping · production
+      placeholder: on-demand
+    validations:
+      required: true
+  - type: input
+    id: current_price
+    attributes:
+      label: Current price in our data (USD/h)
+      placeholder: 2.59
+  - type: input
+    id: correct_price
+    attributes:
+      label: Correct price (USD/h)
+      placeholder: 2.49
+    validations:
+      required: true
+  - type: input
+    id: source_url
+    attributes:
+      label: Source URL
+      description: A public pricing page that shows the correct price.
+    validations:
+      required: true
+  - type: input
+    id: observed_at
+    attributes:
+      label: Date observed (YYYY-MM-DD)
+      placeholder: "2026-05-24"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything else worth knowing (region, fine print, caveats).
