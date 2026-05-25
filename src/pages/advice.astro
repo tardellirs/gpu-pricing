@@ -2,90 +2,183 @@
 import "../styles/globals.css";
 import { ThemeToggle } from "../components/ThemeToggle.tsx";
 import { Github, ArrowLeft } from "lucide-react";
+import offerings from "../data/offerings.json";
+import providers from "../data/providers.json";
+import { OfferingsFileSchema, ProvidersFileSchema } from "../data/schema";
+
+const parsedOfferings = OfferingsFileSchema.parse(offerings);
+const parsedProviders = ProvidersFileSchema.parse(providers);
 
 const GH_URL = "https://github.com/tardellirs/gpu-pricing";
-const COLLECTED = "2026-05-24";
 
-const RANKING: Array<{ n: string; name: string; reason: string }> = [
-  { n: "01", name: "Dataoorts", reason: "H100 spot $0.79 (Nova series), vCPU/RAM free, 5 distinct series including Blackwell GB300. The unexpected winner once you look past the dynamic-pricing scare." },
-  { n: "02", name: "Verda (ex-DataCrunch)", reason: "Consistent ~65% spot discount across the lineup (H100 $0.80, A100 $0.45). No hidden line items." },
-  { n: "03", name: "RunPod", reason: "Broadest catalog (31 SKUs), three tiers (Community / Secure / Spot), best UX among GPU-native clouds. Not the cheapest — the most complete." },
-  { n: "04", name: "Hyperstack", reason: "Best on-demand-only H100 ($1.90 PCIe). No egress fees, per-minute billing. Pick this if you can't accept preemption." },
-  { n: "05", name: "Vast.ai", reason: "Best-curated marketplace. Transparent min/median, both on-demand and interruptible. Volatility is the trade-off." },
-  { n: "06", name: "Salad", reason: "Unbeatable on consumer GPUs (RTX 4090 $0.25!) — but vCPU/RAM billed separately and the tier is interruptible." },
-  { n: "07", name: "Modal", reason: "Real serverless (per-second). Cheap if your workload is bursty; expensive if it runs 24/7." },
-  { n: "08", name: "Jarvis Labs", reason: "Simple catalog, reasonable prices, spot exists (~56% off, estimated)." },
-  { n: "09", name: "Novita", reason: "Focused catalog, real spot at ~50% off, friendly to China-region workloads." },
-  { n: "10", name: "Spheron / Akash", reason: "Decentralized marketplaces. Can show absurdly low minimums (Akash RTX 4090 $0.17) but availability swings day-to-day. Use with a fallback." },
-];
+const collectedAt =
+  parsedOfferings
+    .map((o) => o.collected_at)
+    .sort()
+    .at(-1) ?? "—";
 
-type ScenarioBlock = {
+const providerMap = new Map(parsedProviders.map((p) => [p.id, p]));
+
+// --- Curation rules ---
+// 1. Exclude legacy architectures (Pascal, Volta, Turing consumer).
+//    Turing T4 is kept (still actively used as an inference workhorse).
+// 2. Salad's lineup beyond RTX 3090 is reported but rarely available at
+//    the Medium priority tier we standardized on.
+// 3. Novita's spot tier is rarely available in practice.
+// 4. Vast.ai pricing is marketplace-volatile — listed cheapest live offer
+//    is often 2–3× higher when you actually provision.
+const LEGACY_RE =
+  /^(GTX 10|GTX 16|RTX 20|Tesla P40|Tesla P100|Tesla V100|^V100$|P40$|P100$)/i;
+
+function classifyArch(model: string): string {
+  const m = model.toUpperCase();
+  if (/(B200|B300|GB200|GB300)/.test(m)) return "Blackwell";
+  if (/(H100|H200|GH200)/.test(m)) return "Hopper";
+  if (
+    /(L40|L4|RTX 40|RTX 50|RTX PRO 6000|RTX 6000 ADA|RTX 6000 PRO|RTX 5090|RTX 4090|ADA)/.test(
+      m,
+    )
+  )
+    return "Ada/Blackwell";
+  if (
+    /(A100|A40|A30|A10|A16|A6000|A5000|A4000|RTX 30|MI300|MI325|MI350|MI355)/.test(
+      m,
+    )
+  )
+    return "Ampere";
+  if (/T4/.test(m)) return "Turing T4";
+  return "—";
+}
+
+type Marker = "primary" | "secondary" | "warn" | null;
+
+function markerFor(o: { provider_id: string; tier: string }): Marker {
+  if (
+    o.tier === "marketplace" ||
+    o.tier === "prototyping" ||
+    o.provider_id === "akash" ||
+    o.provider_id === "spheron" ||
+    o.provider_id === "thunder-compute"
+  ) {
+    return "warn";
+  }
+  return null;
+}
+
+const ranking = parsedOfferings
+  .filter((o) => o.price_usd_hour > 0)
+  .filter((o) => !LEGACY_RE.test(o.gpu_model))
+  .filter((o) => !(o.provider_id === "salad" && o.gpu_model !== "RTX 3090"))
+  .filter((o) => !(o.provider_id === "novita" && o.is_spot))
+  .filter((o) => o.provider_id !== "vast-ai")
+  .map((o) => ({
+    ...o,
+    provider_name: providerMap.get(o.provider_id)?.name ?? o.provider_id,
+    provider_color: providerMap.get(o.provider_id)?.color ?? "#666",
+    arch: classifyArch(o.gpu_model),
+    vram_per_dollar: o.vram_gb / o.price_usd_hour,
+    marker: markerFor(o),
+  }))
+  .sort((a, b) => b.vram_per_dollar - a.vram_per_dollar)
+  .slice(0, 30);
+
+// IDs of rows we explicitly highlight in the table
+const PRIMARY_IDS = new Set([
+  "verda-rtx-a6000-spot",
+  "dataoorts-nova-a100-sxm4-80gb-spot",
+  "verda-a100-sxm-80gb-spot",
+  "packet-ai-rtx-pro-6000-pcie-on-demand",
+]);
+const SECONDARY_IDS = new Set([
+  "dataoorts-nova-rtx-pro-6000-spot",
+  "verda-rtx-pro-6000-spot",
+  "runpod-rtx-a5000-community",
+]);
+
+type Pick = {
+  rank: number;
+  position: string;
   title: string;
-  picks: Array<[string, string]>;
-  rationale?: string;
+  spec: string;
+  why: string;
 };
 
-const SCENARIOS: ScenarioBlock[] = [
+const PICKS: Pick[] = [
   {
-    title: "Cheapest H100 for interruption-tolerant training",
-    picks: [
-      ["Dataoorts Nova spot", "$0.79"],
-      ["Verda spot", "$0.80"],
-      ["Vast.ai interruptible", "$1.10"],
-    ],
-    rationale:
-      "Above this you're paying markup. Dataoorts and Verda quote more predictable prices than Vast.ai (which is a live marketplace).",
+    rank: 1,
+    position: "🏆 #1 overall practical pick",
+    title: "RTX A6000 48GB @ $0.17/h spot — Verda",
+    spec: "282 VRAM/$ · Ampere · 48 GB · spot tier",
+    why: "Fits Llama-3 70B Q4, SDXL with batch, LoRA training of mid-size models. Verda spot has historically low interruption rates compared to marketplaces. The best objective cost-benefit on the entire list once you discount unreachable prices.",
   },
   {
-    title: "Reliable H100 on-demand, no spot",
-    picks: [
-      ["Thunder Compute", "$1.38 — but virtualized GPU-over-IP; perf varies"],
-      ["Hyperstack H100 PCIe", "$1.90 — dedicated, clean"],
-      ["RunPod Community", "$1.99 — the realistic sweet spot"],
-    ],
+    rank: 2,
+    position: "🥈 #2 — when the model is big",
+    title: "A100 80GB @ $0.45/h spot — Dataoorts or Verda",
+    spec: "178 VRAM/$ · Ampere · 80 GB · NVLink (SXM) · spot tier",
+    why: "The standard ML research GPU. Mature ecosystem, fits Llama-70B FP16, supports BF16/FlashAttention out of the box. Same price at two reputable providers gives natural redundancy.",
   },
   {
-    title: "Small-model inference on RTX 4090",
-    picks: [
-      ["Salad", "$0.25 — add $0.004/vCPU/h + $0.001/GB RAM/h"],
-      ["Akash", "$0.17 — volatile, may have no offer"],
-      ["RunPod Community", "$0.34 — simpler, predictable"],
-    ],
+    rank: 3,
+    position: "🥉 #3 — when you can't accept interruption",
+    title: "RTX 6000 Pro 96GB @ $0.66/h on-demand — Packet.ai",
+    spec: "145 VRAM/$ · Ada/Blackwell · 96 GB · GDDR7 · true on-demand",
+    why: "The only sub-$1/h path to 96 GB of VRAM that's actually on-demand (no spot, no marketplace, no virtualization). Pay-as-you-go with no minimum commitment. The pick when the workload absolutely cannot be preempted.",
   },
   {
-    title: "True serverless — pay only while it runs",
-    picks: [
-      [
-        "Modal",
-        "T4 $0.59 equiv, A100 $2.50 — high per-hour, but 30 min/day workloads are unbeatable",
-      ],
-    ],
+    rank: 4,
+    position: "#4 — high VRAM batch jobs that tolerate spot",
+    title: "RTX PRO 6000 96GB @ $0.59/h spot — Verda or Dataoorts",
+    spec: "163 VRAM/$ · Ada/Blackwell · 96 GB · GDDR7 · spot tier",
+    why: "Same hardware as #3 but 11% cheaper if you accept preemption. Two providers means natural failover. Best for high-throughput inference batching or non-time-critical training.",
   },
   {
-    title: "Cheap A100 80GB without surprises",
-    picks: [
-      ["Akash", "$1.08 — marketplace, 13/16 free at snapshot"],
-      ["RunPod Community PCIe", "$1.19"],
-      ["Verda", "$1.29 (spot at $0.45 available)"],
-      ["Hyperstack PCIe", "$1.35"],
-    ],
+    rank: 5,
+    position: "#5 — small-model dev and prototyping",
+    title: "RTX A5000 24GB @ $0.16/h — RunPod Community",
+    spec: "150 VRAM/$ · Ampere · 24 GB · Community tier",
+    why: "24 GB fits Llama-3 8B / Mistral / Stable Diffusion comfortably in FP16. RunPod Community availability is historically high and the UX is the best among GPU-native clouds. The default for daily dev work.",
   },
 ];
 
-const PITFALLS: Array<{ provider: string; warning: string }> = [
+const REMOVED_FROM_RANKING = [
   {
-    provider: "Salad / Modal",
-    warning: "vCPU/RAM billed separately. GPU-only price misleads.",
+    label: "Legacy architectures",
+    detail:
+      "Pascal (GTX 10xx, P40, P100), Volta (V100), Turing consumer (GTX 16xx, RTX 20xx). Missing BF16/FP8, no FlashAttention, poor tokens-per-second per dollar despite cheap headline prices. Turing T4 (data center) is kept — it's still a current inference card.",
   },
   {
-    provider: "Spheron / Vast / Akash",
+    label: "Salad's full lineup",
+    detail:
+      "Only RTX 3090 is treated as reliably available at the Medium priority tier. Other Salad SKUs are listed on the page but availability varies enough that they distort cost-benefit math.",
+  },
+  {
+    label: "Novita Spot tier",
+    detail:
+      "Novita's spot pricing is published but rarely materializes in practice. Novita on-demand is fine and is included in the ranking; only the spot rows are excluded here.",
+  },
+  {
+    label: "Vast.ai entirely",
+    detail:
+      "Marketplace volatility — the displayed price is the cheapest live offer at snapshot time, and the actual provisioning price is commonly 2–3× higher. Hard to plan around.",
+  },
+];
+
+const PITFALLS = [
+  {
+    provider: "Salad / Modal",
     warning:
-      "The shown number is \"cheapest live offer\" — can be 2–3× higher when you actually provision.",
+      "vCPU and RAM are billed separately. The GPU-only price misleads — a typical pod adds ~$0.05/h for vCPU+RAM you'll actually attach.",
+  },
+  {
+    provider: "Spheron / Akash / Vast.ai cheapest",
+    warning:
+      'Displayed numbers are "cheapest live offer" — can be 2–3× higher when you actually provision. Treat as floor, not target.',
   },
   {
     provider: "CoreWeave",
     warning:
-      "Classic tier still has 1x SKUs, but new H100/H200 are only sold in 8x bundles.",
+      "Classic tier still has 1x SKUs, but new H100/H200 are sold only in 8x bundles. The cheapest H100 1x here is $4.25 on-demand.",
   },
   {
     provider: "Vultr",
@@ -94,12 +187,13 @@ const PITFALLS: Array<{ provider: string; warning: string }> = [
   },
   {
     provider: "Dataoorts",
-    warning: "\"Dynamic\" pricing refreshes every ~18h. Values can drift.",
+    warning:
+      'Pricing is "dynamic" (DDRA) and refreshes every ~18h. Numbers can drift between snapshots.',
   },
   {
-    provider: "Thunder Compute (Prototyping)",
+    provider: "Thunder Compute Prototyping",
     warning:
-      "Cheap because it's virtualized shared GPU — performance fluctuates; not for prod.",
+      "Cheap because the GPU is virtualized (GPU-over-IP). Performance varies — not for production.",
   },
 ];
 ---
@@ -113,7 +207,7 @@ const PITFALLS: Array<{ provider: string; warning: string }> = [
     <meta name="robots" content="noindex" />
     <meta
       name="description"
-      content="Opinionated cost-benefit ranking of 21 cloud GPU providers, derived from the gpu-pricing catalog."
+      content="Curated cost-benefit ranking of cloud GPU rentals across 21 providers, sorted by VRAM per dollar-hour."
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>advice — gpu-pricing</title>
@@ -175,93 +269,203 @@ const PITFALLS: Array<{ provider: string; warning: string }> = [
       </div>
     </header>
 
-    <main class="max-w-3xl mx-auto px-4 md:px-6 py-10 md:py-16 space-y-12">
+    <main
+      class="max-w-4xl mx-auto px-4 md:px-6 py-10 md:py-16 space-y-12"
+    >
       <!-- Intro -->
       <section class="space-y-4">
-        <p
-          class="text-[11px] uppercase tracking-[0.22em] text-ink-400 font-mono"
-        >
+        <p class="text-[11px] uppercase tracking-[0.22em] text-ink-400 font-mono">
           <span class="text-accent">$</span> cat advice.md
         </p>
-        <h1
-          class="text-3xl md:text-4xl font-mono font-semibold text-ink-50 leading-tight"
-        >
+        <h1 class="text-3xl md:text-4xl font-mono font-semibold text-ink-50 leading-tight">
           The opinionated <span class="text-accent">cost-benefit</span> ranking.
         </h1>
         <p class="text-sm text-ink-200 font-sans leading-relaxed max-w-2xl">
-          21 providers, 310 offerings — but you only need one. Below is what
-          the catalog actually says about who to pick, by use case. Numbers come
-          straight from <code>offerings.json</code>. Snapshot: <span
-            class="text-ink-100 tabular-nums">{COLLECTED}</span
-          >.
+          Ranked by <strong>VRAM per dollar-hour</strong>
+          (<code>vram_gb ÷ price_usd_hour</code>) — the practical metric for ML
+          workloads, where memory is the binding constraint and dollars
+          determine how long you can run. Computed live from <code
+            >offerings.json</code
+          >, snapshot <span class="text-ink-100 tabular-nums">{collectedAt}</span>.
+          Filtered to remove options that aren't realistically usable today:
+          see <a href="#what-was-removed" class="text-accent hover:underline"
+            >what was removed</a
+          > below.
         </p>
       </section>
 
-      <!-- Overall ranking -->
-      <section class="space-y-4">
-        <h2
-          class="text-[11px] uppercase tracking-[0.22em] text-ink-300 font-mono border-b border-wire pb-2"
-        >
-          <span class="text-accent">$</span> overall_top_10
-        </h2>
-        <ol class="space-y-3 font-mono text-sm">
-          {
-            RANKING.map((r) => (
-              <li class="grid grid-cols-[2.5rem_1fr] gap-x-3 items-baseline border-b border-wire/40 pb-3">
-                <span class="text-accent tabular-nums text-xs">{r.n}</span>
-                <div>
-                  <div class="text-ink-50 font-semibold">{r.name}</div>
-                  <p class="mt-1 text-xs text-ink-300 font-sans leading-relaxed">
-                    {r.reason}
-                  </p>
-                </div>
-              </li>
-            ))
-          }
-        </ol>
-
-        <p class="text-xs text-ink-300 font-sans leading-relaxed pt-2">
-          <strong class="text-ink-100">Skip for pure cost:</strong> CoreWeave Classic
-          1x is expensive ($4.25 H100), Lambda has no spot ($3.29 H100), DigitalOcean
-          is on-demand-only ($3.39 H100), Vultr's H100/A100/B200 are 8x-only bundles.
-        </p>
-      </section>
-
-      <!-- By scenario -->
+      <!-- Top 5 picks -->
       <section class="space-y-6">
         <h2
           class="text-[11px] uppercase tracking-[0.22em] text-ink-300 font-mono border-b border-wire pb-2"
         >
-          <span class="text-accent">$</span> grep -A scenario
+          <span class="text-accent">$</span> top_5_practical_picks
         </h2>
 
-        {
-          SCENARIOS.map((s) => (
-            <div class="space-y-2.5">
-              <h3 class="text-sm font-mono text-ink-100 font-medium">
-                <span class="text-accent">▸</span> {s.title}
-              </h3>
-              <ol class="space-y-1.5 ml-4 font-mono text-xs">
-                {s.picks.map(([name, detail], i) => (
-                  <li class="grid grid-cols-[1.5rem_1fr] gap-x-2 items-baseline">
-                    <span class="text-ink-500 tabular-nums">
-                      {String(i + 1).padStart(2, "0")}.
-                    </span>
-                    <span>
-                      <span class="text-ink-100">{name}</span>
-                      <span class="text-ink-400"> — {detail}</span>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              {s.rationale && (
-                <p class="ml-4 text-xs text-ink-300 font-sans italic leading-relaxed">
-                  {s.rationale}
+        <div class="space-y-4">
+          {
+            PICKS.map((p) => (
+              <article class="border border-wire bg-ink-950/40 p-5 md:p-6 space-y-2">
+                <div class="text-[10px] uppercase tracking-[0.18em] text-ink-400 font-mono">
+                  {p.position}
+                </div>
+                <h3 class="text-lg md:text-xl font-mono text-ink-50">
+                  <span class="text-accent">{p.title}</span>
+                </h3>
+                <div class="text-[11px] uppercase tracking-wider text-ink-300 font-mono">
+                  {p.spec}
+                </div>
+                <p class="text-sm text-ink-200 font-sans leading-relaxed pt-1">
+                  {p.why}
                 </p>
-              )}
-            </div>
-          ))
-        }
+              </article>
+            ))
+          }
+        </div>
+      </section>
+
+      <!-- Top 30 ranking -->
+      <section class="space-y-4">
+        <h2
+          class="text-[11px] uppercase tracking-[0.22em] text-ink-300 font-mono border-b border-wire pb-2"
+        >
+          <span class="text-accent">$</span> top_30 — vram per $/hour
+        </h2>
+
+        <div class="overflow-x-auto border border-wire">
+          <table class="w-full border-collapse">
+            <thead class="bg-ink-900/80">
+              <tr class="border-b border-wireStrong text-[10px] uppercase tracking-[0.16em] text-ink-400">
+                <th class="text-left px-3 py-2.5 font-mono font-normal w-10">#</th>
+                <th class="text-right px-3 py-2.5 font-mono font-normal">VRAM/$</th>
+                <th class="text-left px-3 py-2.5 font-mono font-normal">GPU</th>
+                <th class="text-right px-3 py-2.5 font-mono font-normal">VRAM</th>
+                <th class="text-right px-3 py-2.5 font-mono font-normal">$/h</th>
+                <th class="text-left px-3 py-2.5 font-mono font-normal">Provider</th>
+                <th class="text-left px-3 py-2.5 font-mono font-normal hidden md:table-cell">Tier</th>
+                <th class="text-left px-3 py-2.5 font-mono font-normal hidden lg:table-cell">Arch</th>
+              </tr>
+            </thead>
+            <tbody>
+              {
+                ranking.map((r, i) => {
+                  const rank = i + 1;
+                  const highlighted = PRIMARY_IDS.has(r.id)
+                    ? "primary"
+                    : SECONDARY_IDS.has(r.id)
+                      ? "secondary"
+                      : null;
+                  const rowClass = highlighted
+                    ? "bg-accent/[0.06] border-l-2 border-l-accent"
+                    : r.marker === "warn"
+                      ? "opacity-80"
+                      : "";
+                  return (
+                    <tr class={`border-b border-wire text-xs ${rowClass}`}>
+                      <td class="px-3 py-2.5 font-mono text-ink-500 tabular-nums">
+                        {String(rank).padStart(2, "0")}
+                      </td>
+                      <td class="px-3 py-2.5 font-mono text-right tabular-nums text-ink-50 font-semibold">
+                        {Math.round(r.vram_per_dollar)}
+                      </td>
+                      <td class="px-3 py-2.5 font-mono text-ink-100">
+                        <span class="inline-flex items-center gap-2">
+                          <span
+                            class="w-1 h-3 shrink-0"
+                            style={`background:${r.gpu_brand === "NVIDIA" ? "#76b900" : "#ed1c24"}`}
+                          />
+                          {r.gpu_model}
+                          {highlighted === "primary" && (
+                            <span class="text-accent text-[10px]">★★</span>
+                          )}
+                          {highlighted === "secondary" && (
+                            <span class="text-accent text-[10px]">★</span>
+                          )}
+                          {r.marker === "warn" && (
+                            <span
+                              class="text-ink-400 text-[10px]"
+                              title="Marketplace or virtualized — listed price may not be the price you actually get"
+                            >
+                              ⚠
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td class="px-3 py-2.5 font-mono text-right tabular-nums text-ink-200">
+                        {r.vram_gb}
+                        <span class="text-ink-400 text-[10px] ml-0.5">GB</span>
+                      </td>
+                      <td class="px-3 py-2.5 font-mono text-right tabular-nums text-ink-100">
+                        <span class="text-ink-400">$</span>
+                        {r.price_usd_hour.toFixed(2)}
+                      </td>
+                      <td class="px-3 py-2.5">
+                        <a
+                          href={providerMap.get(r.provider_id)?.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="inline-flex items-center gap-2 font-mono text-ink-100 hover:text-accent transition-colors"
+                        >
+                          <span
+                            class="w-1.5 h-1.5 shrink-0"
+                            style={`background:${r.provider_color}`}
+                          />
+                          {r.provider_name}
+                        </a>
+                      </td>
+                      <td class="px-3 py-2.5 hidden md:table-cell">
+                        <span class="text-[10px] uppercase tracking-wider text-ink-300 font-mono">
+                          {r.tier}
+                          {r.is_spot && r.tier !== "spot" ? " (spot)" : ""}
+                        </span>
+                      </td>
+                      <td class="px-3 py-2.5 hidden lg:table-cell font-mono text-[11px] text-ink-300">
+                        {r.arch}
+                      </td>
+                    </tr>
+                  );
+                })
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-[11px] text-ink-400 font-mono leading-relaxed pt-1">
+          <span class="text-accent">▸</span> ★★ = primary recommendation · ★ = strong alternative · ⚠ = marketplace / virtualized (listed price may not materialize)
+          <br />
+          <span class="text-accent">▸</span> Salad RTX 3090 at $0.20 lands at #31 (120 VRAM/$) — a hair below the cutoff. Honorable mention.
+        </p>
+      </section>
+
+      <!-- What was removed -->
+      <section class="space-y-4" id="what-was-removed">
+        <h2
+          class="text-[11px] uppercase tracking-[0.22em] text-ink-300 font-mono border-b border-wire pb-2"
+        >
+          <span class="text-accent">$</span> grep -v from_ranking
+        </h2>
+
+        <p class="text-sm text-ink-200 font-sans leading-relaxed">
+          The ranking above filters out offerings that exist in the catalog but
+          don't behave as advertised in real-world use. They remain visible on
+          the <a href="/" class="text-accent hover:underline">catalog page</a> for
+          completeness, with caveats attached.
+        </p>
+
+        <ul class="space-y-3">
+          {
+            REMOVED_FROM_RANKING.map((r) => (
+              <li class="border-l-2 border-wireStrong pl-4 space-y-1">
+                <div class="text-sm font-mono text-ink-100 font-medium">
+                  {r.label}
+                </div>
+                <p class="text-xs text-ink-300 font-sans leading-relaxed">
+                  {r.detail}
+                </p>
+              </li>
+            ))
+          }
+        </ul>
       </section>
 
       <!-- Pitfalls -->
@@ -297,26 +501,19 @@ const PITFALLS: Array<{ provider: string; warning: string }> = [
           class="border border-wireStrong bg-ink-900/60 p-5 md:p-7 space-y-4"
         >
           <p class="text-sm text-ink-100 font-sans leading-relaxed">
-            For a <strong>single provider</strong> covering training, inference,
-            and prototyping today: <strong class="text-accent font-mono"
-              >RunPod</strong
-            >. Community for cheap batch ($1.99 H100), Secure for production ($3.29),
-            Spot for throwaway experiments. Catalog spans B200 down to RTX A4000.
-            UX is the best in the GPU-native cloud category.
+            <strong class="text-accent font-mono">RTX A6000 48GB at $0.17/h spot on Verda</strong> — 48 GB is the current sweet spot of VRAM (fits nearly everything that matters: Llama-3 70B Q4, FLUX/SDXL with batch, mid-size LoRA training). $0.17/h is absurdly cheap for that hardware class. Verda's spot historically has reasonable preemption frequency (not as volatile as marketplaces) and the RTX A6000 (Ampere) supports BF16, FlashAttention, vLLM, and the rest of the modern stack.
           </p>
           <p class="text-sm text-ink-200 font-sans leading-relaxed">
-            To <strong>maximize savings on interruption-tolerant training</strong>,
-            combine: <span class="font-mono text-accent">Dataoorts</span> / <span
-              class="font-mono text-accent">Verda</span
-            > spot as primary, <span class="font-mono text-accent"
-              >RunPod Community</span
-            > as fallback when spot evaporates.
+            If your workload <strong>cannot be interrupted</strong>:
+            <strong class="text-accent font-mono"
+              >Packet.ai RTX 6000 Pro 96GB on-demand at $0.66/h</strong
+            > — the only top-30 entry that combines true on-demand with more than 40 GB of modern VRAM.
           </p>
           <p class="text-sm text-ink-200 font-sans leading-relaxed">
-            For <strong>consumer-GPU inference</strong> (chatbots, image generation,
-            light models): <span class="font-mono text-accent">Salad</span> is hard
-            to beat on price — just remember to add ~$0.05/h for the vCPU/RAM you'll
-            actually attach.
+            If the model is <strong>genuinely huge</strong> (needs 80 GB+):
+            <strong class="text-accent font-mono"
+              >A100 80GB at $0.45/h spot on Dataoorts or Verda</strong
+            > — research-grade hardware at consumer-card prices, two providers for natural failover.
           </p>
         </div>
       </section>
@@ -326,13 +523,14 @@ const PITFALLS: Array<{ provider: string; warning: string }> = [
         <p
           class="text-[10px] uppercase tracking-[0.18em] font-mono text-ink-500 leading-relaxed"
         >
-          <span class="text-accent">▸</span> opinionated, not paid. derived from
-          public pricing pages, snapshot {COLLECTED}.
+          <span class="text-accent">▸</span> opinionated, not paid. ranking
+          computed at build time from <code>offerings.json</code>, snapshot {collectedAt}.
           <br />
-          <span class="text-accent">▸</span> no perf-per-dollar benchmarks. no uptime/SLA
-          data. no kickbacks. trust but verify.
+          <span class="text-accent">▸</span> no perf-per-dollar benchmarks. no
+          uptime/SLA data. no kickbacks. trust but verify.
           <br />
-          <span class="text-accent">▸</span> spot a mistake? PR welcome — <a
+          <span class="text-accent">▸</span> spot a mistake or disagree with the
+          curation rules? PR welcome — <a
             href={GH_URL}
             target="_blank"
             rel="noopener noreferrer"
@@ -344,7 +542,7 @@ const PITFALLS: Array<{ provider: string; warning: string }> = [
 
     <footer class="border-t border-wire mt-12 py-6 px-4 md:px-6">
       <div
-        class="flex flex-col sm:flex-row gap-3 sm:gap-6 text-[10px] uppercase tracking-[0.16em] font-mono text-ink-500 max-w-3xl mx-auto"
+        class="flex flex-col sm:flex-row gap-3 sm:gap-6 text-[10px] uppercase tracking-[0.16em] font-mono text-ink-500 max-w-4xl mx-auto"
       >
         <a href="/" class="hover:text-accent transition-colors">← catalog</a>
         <a
@@ -357,14 +555,14 @@ const PITFALLS: Array<{ provider: string; warning: string }> = [
         </a>
       </div>
     </footer>
+
+    <style>
+      code {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 0.85em;
+        padding: 0 0.25em;
+        background: rgba(245, 158, 11, 0.08);
+      }
+    </style>
   </body>
 </html>
-
-<style>
-  code {
-    font-family: "Geist Mono", ui-monospace, monospace;
-    font-size: 0.85em;
-    padding: 0 0.25em;
-    background: rgba(245, 158, 11, 0.08);
-  }
-</style>
